@@ -1,0 +1,85 @@
+# =========================================================================
+# SM-Park - Orchestration Docker Compose
+# -------------------------------------------------------------------------
+# Services actifs :
+#   - Phase 2 : mqtt-broker, database
+# Services à venir :
+#   - Phase 3 : backend
+#   - Phase 4 : ocr-service
+#   - Phase 6 : frontend
+# Pour lancer : docker compose --env-file .env up -d --build
+# =========================================================================
+
+name: smpark
+
+networks:
+  smpark-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mosquitto_data:
+  mosquitto_log:
+
+services:
+
+  # -----------------------------------------------------------------------
+  # Broker MQTT - Eclipse Mosquitto
+  # -----------------------------------------------------------------------
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: smpark-mqtt
+    restart: unless-stopped
+    environment:
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "9001:9001"
+    volumes:
+      - ./mqtt-broker/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mqtt-broker/entrypoint.sh:/mosquitto/config/entrypoint.sh:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    networks:
+      - smpark-net
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -u \"$$MQTT_USERNAME\" -P \"$$MQTT_PASSWORD\" -t '$$SYS/broker/uptime' -C 1 -W 3 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # -----------------------------------------------------------------------
+  # Base de données - PostgreSQL
+  # -----------------------------------------------------------------------
+  database:
+    image: postgres:16-alpine
+    container_name: smpark-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - smpark-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# -------------------------------------------------------------------------
+# SERVICES À VENIR
+#   backend:      # Phase 3
+#   ocr-service:  # Phase 4
+#   frontend:     # Phase 6
+# -------------------------------------------------------------------------
