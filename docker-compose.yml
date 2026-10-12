@@ -4,8 +4,8 @@
 # Services actifs :
 #   - Phase 2 : mqtt-broker, database
 #   - Phase 3 : backend
-# Services à venir :
 #   - Phase 4 : ocr-service
+# Services à venir :
 #   - Phase 6 : frontend
 # Pour lancer : docker compose --env-file .env up -d --build
 # =========================================================================
@@ -107,8 +107,31 @@ services:
       retries: 5
       start_period: 15s
 
+  # -----------------------------------------------------------------------
+  # Service OCR - FastAPI + EasyOCR + OpenCV (capture webcam + OCR)
+  # -----------------------------------------------------------------------
+  # Accès à la webcam : par défaut DÉSACTIVÉ pour démarrer sans matériel.
+  # Pour l'activer, voir docker-compose.override.yml.example (devices /dev/video0).
+  ocr-service:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    container_name: smpark-ocr
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${OCR_PORT:-8001}:8001"
+    networks:
+      - smpark-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health/live').status==200 else 1)\""]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
 # -------------------------------------------------------------------------
 # SERVICES À VENIR
-#   ocr-service:  # Phase 4
-#   frontend:     # Phase 6
+#   frontend:  # Phase 6
 # -------------------------------------------------------------------------

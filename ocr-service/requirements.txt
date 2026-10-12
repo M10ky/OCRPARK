@@ -1,0 +1,12 @@
+# =========================================================================
+# SM-Park - Service OCR - dépendances Python
+# Note : torch/torchvision (build CPU) sont installés à part dans le
+# Dockerfile via l'index PyTorch CPU pour garder une image légère.
+# =========================================================================
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.34,<0.35
+pydantic-settings>=2.7,<3
+python-multipart>=0.0.12,<0.1
+numpy>=1.24,<2
+opencv-python-headless>=4.9,<4.11
+easyocr>=1.7.1,<1.8
