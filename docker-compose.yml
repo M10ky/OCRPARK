@@ -3,8 +3,8 @@
 # -------------------------------------------------------------------------
 # Services actifs :
 #   - Phase 2 : mqtt-broker, database
-# Services à venir :
 #   - Phase 3 : backend
+# Services à venir :
 #   - Phase 4 : ocr-service
 #   - Phase 6 : frontend
 # Pour lancer : docker compose --env-file .env up -d --build
@@ -77,9 +77,38 @@ services:
       retries: 5
       start_period: 10s
 
+  # -----------------------------------------------------------------------
+  # Backend - FastAPI (API + logique métier + WebSocket)
+  # -----------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smpark-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MQTT_HOST: mqtt-broker
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_healthy
+    networks:
+      - smpark-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health/live').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
 # -------------------------------------------------------------------------
 # SERVICES À VENIR
-#   backend:      # Phase 3
 #   ocr-service:  # Phase 4
 #   frontend:     # Phase 6
 # -------------------------------------------------------------------------

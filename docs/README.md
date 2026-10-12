@@ -10,11 +10,13 @@ docs/
 ├── fiches-de-production/           # fiche de production de chaque phase
 │   ├── phase-0-preparation.md
 │   ├── phase-1-arborescence-fondations.md
-│   └── phase-2-mqtt-postgresql.md
+│   ├── phase-2-mqtt-postgresql.md
+│   └── phase-3-backend-fastapi.md
 └── tests/                          # tutos de test par technologie
     ├── phase-0-tests-environnement.md
     ├── phase-1-tests-fondations.md
-    └── phase-2-tests-mqtt-postgresql.md
+    ├── phase-2-tests-mqtt-postgresql.md
+    └── phase-3-tests-backend.md
 ```
 
 ## Convention
@@ -35,6 +37,7 @@ docs/
 | 0 – Préparation | [fiche](fiches-de-production/phase-0-preparation.md) | [tests](tests/phase-0-tests-environnement.md) |
 | 1 – Arborescence et fondations | [fiche](fiches-de-production/phase-1-arborescence-fondations.md) | [tests](tests/phase-1-tests-fondations.md) |
 | 2 – Broker MQTT + Base de données | [fiche](fiches-de-production/phase-2-mqtt-postgresql.md) | [tests](tests/phase-2-tests-mqtt-postgresql.md) |
+| 3 – Backend FastAPI (base) | [fiche](fiches-de-production/phase-3-backend-fastapi.md) | [tests](tests/phase-3-tests-backend.md) |
 
 ## Technologies utilisées
 

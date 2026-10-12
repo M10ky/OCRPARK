@@ -65,8 +65,8 @@ SM-Park/
 
 - [x] Phase 0 — Préparation
 - [x] Phase 1 — Arborescence et fondations
-- [ ] Phase 2 — Broker MQTT + Base de données
-- [ ] Phase 3 — Backend FastAPI (structure de base)
+- [x] Phase 2 — Broker MQTT + Base de données
+- [x] Phase 3 — Backend FastAPI (structure de base)
 - [ ] Phase 4 — Service OCR
 - [ ] Phase 5 — Backend : logique métier complète
 - [ ] Phase 6 — Frontend Next.js
