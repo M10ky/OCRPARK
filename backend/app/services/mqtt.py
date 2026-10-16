@@ -77,17 +77,23 @@ class MQTTService:
                 )
                 await asyncio.sleep(self.RECONNECT_DELAY)
 
-    async def publish(self, topic: str, payload) -> None:
-        """Publie un message (silencieusement ignoré si déconnecté)."""
-        if self._client is None or not self.connected:
-            logger.warning("Publication MQTT ignorée (non connecté) : %s", topic)
-            return
+    async def publish(self, topic: str, payload) -> bool:
+        """Publie un message. Retourne True si la publication a été remise au
+        client, False sinon (déconnecté / erreur) — jamais d'échec en silence."""
         import json
 
-        if isinstance(payload, dict):
-            await self._client.publish(topic, json.dumps(payload))
-        else:
-            await self._client.publish(topic, str(payload))
+        if self._client is None or not self.connected:
+            logger.warning("Publication MQTT ignorée (non connecté) : %s", topic)
+            return False
+        try:
+            if isinstance(payload, dict):
+                await self._client.publish(topic, json.dumps(payload))
+            else:
+                await self._client.publish(topic, str(payload))
+            return True
+        except Exception as exc:  # noqa: BLE001 — aiomqtt lève MqttError/OSError
+            logger.warning("Échec de publication MQTT sur %s : %s", topic, exc)
+            return False
 
     async def start(self) -> None:
         """Démarre la connexion MQTT en arrière-plan."""
@@ -113,11 +119,10 @@ def is_connected() -> bool:
     return mqtt_client.connected
 
 
-async def publish_json(topic: str, payload: dict | str) -> None:
+async def publish_json(topic: str, payload: dict | str) -> bool:
     import json
 
     if isinstance(payload, dict):
-        await mqtt_client.publish(topic, json.dumps(payload))
-    else:
-        await mqtt_client.publish(topic, str(payload))
+        return await mqtt_client.publish(topic, json.dumps(payload))
+    return await mqtt_client.publish(topic, str(payload))
 
