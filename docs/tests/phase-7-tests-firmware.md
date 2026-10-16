@@ -56,7 +56,16 @@ Attendu : `idle` avec `reason: "unknown_action"`.
 ### A.5 Vérifier la commande émise par le backend (optionnel)
 Terminal 2 abonné à `parking/barrier/command`, puis déclencher
 `POST /api/orchestrate/upload` avec une plaque autorisée (voir Phase 5).
-Attendu : la commande `{"action":"open", ...}` publiée par le backend.
+Attendu : la commande `{"action":"open","gate":"entry","plate":...,"correlation_id":...}`
+publiée par le backend.
+
+### A.6 Test d'intégration complet (le vrai flux)
+1. Ajouter une plaque autorisée : `POST /api/plates` (voir Phase 5).
+2. Démarrer le simulateur (A.1) puis, dans un autre terminal, déclencher
+   `POST /api/orchestrate/upload` avec une image de cette plaque (plaque autorisée).
+3. Attendu : le backend publie `parking/barrier/command`, le « device » répond
+   `opening → open → closing → closed` sur `barrier/state`, et le backend
+   relaye ces états sur le WebSocket `/ws/events` (voir Phase 5, section 8bis).
 
 ---
 
@@ -99,6 +108,14 @@ docker compose exec mqtt-broker mosquitto_pub -h localhost -p 1883 \
   -u smpark -P change_me_mqtt -t parking/barrier/command -m '{"action":"open"}'
 ```
 Attendu : séquence `opening`, `open`, `closing`, `closed` sur `barrier/state`.
+
+### B.4 Vérifier que l'ESP32 est bien connecté au broker
+```bash
+docker compose logs --tail=20 mqtt-broker
+```
+Attendu : une ligne de connexion du client `smpark-esp32-XXXX` (suffixe = 2
+octets de la MAC). En cas d'absence : vérifier `MQTT_HOST` (IP LAN de l'hôte),
+le pare-feu (C.3) et que l'ESP32 est sur le même sous-réseau.
 
 ## Partie C — Prérequis WSL2 / Windows (dépannage)
 

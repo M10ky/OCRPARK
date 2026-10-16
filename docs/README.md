@@ -15,7 +15,8 @@ docs/
 │   ├── phase-4.md
 │   ├── phase-5.md
 │   ├── phase-6.md
-│   └── phase-7.md
+│   ├── phase-7.md
+│   └── phase-7-plan-tests-mqtt.md
 └── tests/                          # tutos de test par technologie
     ├── phase-0-tests-environnement.md
     ├── phase-1-tests-fondations.md
