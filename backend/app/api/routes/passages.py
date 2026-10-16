@@ -1,4 +1,5 @@
 """Routes pour historique des passages."""
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +11,7 @@ from app.db.session import get_session
 from app.models.passage import Passage
 from app.models.user import User
 from app.schemas.passages import PassageRead, PassageStats
+from app.services.ocr_client import normalize_plate
 
 router = APIRouter(prefix="/api/passages", tags=["passages"])
 
@@ -23,16 +25,27 @@ async def list_passages(
     plate: str | None = None,
     source: str | None = None,
     allowed: bool | None = None,
+    date_from: datetime | None = Query(
+        default=None, description="Bornes inclusives sur created_at (ISO 8601)."
+    ),
+    date_to: datetime | None = Query(
+        default=None, description="Borne haute inclusive sur created_at (ISO 8601)."
+    ),
 ) -> list[PassageRead]:
-    stmt = select(Passage).order_by(Passage.created_at.desc()).offset(offset).limit(limit)
+    # Une seule construction : les filtres se CUMULENT (AND), puis tri/pagination.
+    stmt = select(Passage)
     if plate:
-        from app.services.ocr_client import normalize_plate
-
-        stmt = select(Passage).where(Passage.plate == normalize_plate(plate)).order_by(Passage.created_at.desc()).offset(offset).limit(limit)
+        stmt = stmt.where(Passage.plate == normalize_plate(plate))
     if source:
-        stmt = select(Passage).where(Passage.source == source).order_by(Passage.created_at.desc()).offset(offset).limit(limit)
+        stmt = stmt.where(Passage.source == source)
     if allowed is not None:
-        stmt = select(Passage).where(Passage.allowed == allowed).order_by(Passage.created_at.desc()).offset(offset).limit(limit)
+        stmt = stmt.where(Passage.allowed == allowed)
+    if date_from is not None:
+        stmt = stmt.where(Passage.created_at >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(Passage.created_at <= date_to)
+    stmt = stmt.order_by(Passage.created_at.desc()).offset(offset).limit(limit)
+
     result = await session.execute(stmt)
     items = result.scalars().all()
     return [PassageRead.model_validate(i) for i in items]
@@ -43,11 +56,15 @@ async def stats_passages(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> PassageStats:
-    total = (await session.execute(select(func.count(Passage.id)))).scalar_one()
-    authorized = (await session.execute(select(func.count(Passage.id)).where(Passage.allowed.is_(True)))).scalar_one()
-    denied = (await session.execute(select(func.count(Passage.id)).where(Passage.allowed.is_(False)))).scalar_one()
-    recognized = (await session.execute(select(func.count(Passage.id)).where(Passage.recognized.is_(True)))).scalar_one()
-    unrecognized = (await session.execute(select(func.count(Passage.id)).where(Passage.recognized.is_(False)))).scalar_one()
+    # Une seule requête avec agrégats conditionnels (COUNT FILTER).
+    stmt = select(
+        func.count(Passage.id),
+        func.count(Passage.id).filter(Passage.allowed.is_(True)),
+        func.count(Passage.id).filter(Passage.allowed.is_(False)),
+        func.count(Passage.id).filter(Passage.recognized.is_(True)),
+        func.count(Passage.id).filter(Passage.recognized.is_(False)),
+    )
+    total, authorized, denied, recognized, unrecognized = (await session.execute(stmt)).one()
     return PassageStats(
         total=total or 0,
         authorized=authorized or 0,
