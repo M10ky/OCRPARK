@@ -122,6 +122,12 @@ services:
       - .env
     ports:
       - "${OCR_PORT:-8001}:8001"
+    devices:
+      - /dev/video0:/dev/video0
+    # Parfois nécessaire sur WSL :
+    privileged: true
+    environment:
+      - OCR_CAMERA_INDEX=0
     networks:
       - smpark-net
     healthcheck:
@@ -135,3 +141,28 @@ services:
 # SERVICES À VENIR
 #   frontend:  # Phase 6
 # -------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------
+  # Frontend - Next.js
+  # -----------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smpark-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+      ocr-service:
+        condition: service_healthy
+    networks:
+      - smpark-net

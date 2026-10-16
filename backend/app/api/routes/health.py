@@ -7,11 +7,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.services.mqtt import mqtt_service
+from app.services.mqtt import mqtt_client
 
 logger = logging.getLogger("smpark.health")
 
-router = APIRouter(tags=["health"])
+router = APIRouter(prefix="/api", tags=["health"])
 
 
 @router.get("/health/live", summary="Liveness probe (le processus répond)")
@@ -25,10 +25,10 @@ async def health(response: Response, session: AsyncSession = Depends(get_session
     try:
         await session.execute(text("SELECT 1"))
         db_up = True
-    except Exception as exc:  # noqa: BLE001 - on veut capturer toute erreur
+    except Exception as exc:  # noqa: BLE001
         logger.error("Base de données injoignable : %s", exc)
 
-    mqtt_up = mqtt_service.connected
+    mqtt_up = mqtt_client.connected
 
     overall = db_up and mqtt_up
     if not overall:

@@ -20,6 +20,10 @@ class MQTTService:
 
     RECONNECT_DELAY = 5
 
+    @property
+    def is_connected(self) -> bool:
+        return self.connected
+
     def __init__(self) -> None:
         self.host = settings.MQTT_HOST
         self.port = settings.MQTT_PORT
@@ -73,12 +77,17 @@ class MQTTService:
                 )
                 await asyncio.sleep(self.RECONNECT_DELAY)
 
-    async def publish(self, topic: str, payload: str) -> None:
+    async def publish(self, topic: str, payload) -> None:
         """Publie un message (silencieusement ignoré si déconnecté)."""
         if self._client is None or not self.connected:
             logger.warning("Publication MQTT ignorée (non connecté) : %s", topic)
             return
-        await self._client.publish(topic, payload)
+        import json
+
+        if isinstance(payload, dict):
+            await self._client.publish(topic, json.dumps(payload))
+        else:
+            await self._client.publish(topic, str(payload))
 
     async def start(self) -> None:
         """Démarre la connexion MQTT en arrière-plan."""
@@ -97,4 +106,18 @@ class MQTTService:
         self.connected = False
 
 
-mqtt_service = MQTTService()
+mqtt_client = MQTTService()
+
+
+def is_connected() -> bool:
+    return mqtt_client.connected
+
+
+async def publish_json(topic: str, payload: dict | str) -> None:
+    import json
+
+    if isinstance(payload, dict):
+        await mqtt_client.publish(topic, json.dumps(payload))
+    else:
+        await mqtt_client.publish(topic, str(payload))
+

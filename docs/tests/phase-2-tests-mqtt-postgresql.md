@@ -23,8 +23,8 @@ docker compose up -d
   pour l'IoT (faible bande passante, connexions instables).
 - Un **broker** (ici Mosquitto) reçoit les messages publiés sur des **topics**
   et les redistribue aux clients abonnés.
-- L'**ESP32** publiera ses états (`smpark/parking/state`) et écoutera les
-  commandes (`smpark/barrier/command`). Le **backend** fera l'inverse.
+- L'**ESP32** publiera ses états (`parking/state`) et écoutera les
+  commandes (`parking/barrier/command`). Le **backend** fera l'inverse.
 - L'authentification est obligatoire : seuls les clients avec
   login/mot de passe peuvent se connecter.
 
@@ -92,14 +92,14 @@ docker exec smpark-mqtt mosquitto_pub -h localhost -p 1883 -t smpark/test -m "an
 ```bash
 # Terminal 1 : abonnement « joker »
 docker exec smpark-mqtt mosquitto_sub -h localhost -p 1883 \
-  -u smpark -P change_me_mqtt -t 'smpark/#' -v
+  -u smpark -P change_me_mqtt -t '#' -v
 
 # Terminal 2 : publication
 docker exec smpark-mqtt mosquitto_pub -h localhost -p 1883 \
-  -u smpark -P change_me_mqtt -t smpark/parking/state -m '{"slot":1,"occupied":true}'
+  -u smpark -P change_me_mqtt -t parking/state -m '{"slot":1,"occupied":true}'
 ```
 
-- **Attendu** : le terminal 1 affiche `smpark/parking/state {"slot":1,...}`.
+- **Attendu** : le terminal 1 affiche `parking/state {"slot":1,...}`.
 - **Ce que vous apprenez** : le joker `#` (multi-niveaux) et `+` (un niveau)
   permettent de s'abonner à des familles de topics. `-v` affiche le topic
   *et* le message. C'est l'outil de debug MQTT à connaître par cœur.

@@ -1,38 +1,46 @@
-"""Point d'entrée de l'API SM-Park (FastAPI)."""
-
+"""Point d'entrée du service Backend SM-Park (FastAPI)."""
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, root
+from app.api.routes import auth, health, orchestrate, passages, plates, root, ws
 from app.core.config import get_settings
-from app.services.mqtt import mqtt_service
+from app.services.mqtt import mqtt_client
+from app.db.session import engine
+from app.models.base import Base
+from app.models import allowed_plate, passage, user  # noqa
+from app.db import init_db
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
-logger = logging.getLogger("smpark")
+logger = logging.getLogger("smpark.backend")
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Démarrage / arrêt des ressources partagées."""
-    logger.info("Démarrage de %s v%s (%s)", settings.PROJECT_NAME, settings.PROJECT_VERSION, settings.ENVIRONMENT)
-    await mqtt_service.start()
+    logger.info("Démarrage de %s v%s", settings.PROJECT_NAME, settings.PROJECT_VERSION)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    asyncio.create_task(mqtt_client.start())
+    try:
+        await init_db.init_db()
+    except Exception as exc:
+        logger.warning("init_db failed: %s", exc)
     yield
-    await mqtt_service.stop()
-    logger.info("Arrêt de l'API SM-Park.")
+    logger.info("Arrêt du service Backend.")
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
-    description="API du système de parking intelligent SM-Park.",
+    description="API + logique métier + WebSocket SM-Park",
     lifespan=lifespan,
 )
 
@@ -45,4 +53,9 @@ app.add_middleware(
 )
 
 app.include_router(root.router)
-app.include_router(health.router, prefix="/api")
+app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(plates.router)
+app.include_router(passages.router)
+app.include_router(orchestrate.router)
+app.include_router(ws.router)
