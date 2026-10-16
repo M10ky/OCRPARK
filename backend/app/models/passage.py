@@ -19,7 +19,10 @@ class Passage(Base):
     recognized: Mapped[bool] = mapped_column(Boolean, default=False)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     allowed: Mapped[bool] = mapped_column(Boolean, default=False)
-    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # VARCHAR(32) : "orchestrator:upload" fait 19 caractères (VARCHAR(16) tronquait).
+    # Migration manuelle sur une base existante (create_all n'altère pas) :
+    #   ALTER TABLE passages ALTER COLUMN source TYPE VARCHAR(32);
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
     action: Mapped[str | None] = mapped_column(String(8), nullable=True)
     barrier_command_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     barrier_action: Mapped[str | None] = mapped_column(String(8), nullable=True)
