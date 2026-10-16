@@ -5,14 +5,29 @@ maintenue en tâche de fond ; l'état est exposé pour le healthcheck.
 """
 
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 
 import aiomqtt
 
 from app.core.config import get_settings
+from app.services.ws_manager import manager
 
 logger = logging.getLogger("smpark.mqtt")
 settings = get_settings()
+
+
+def _decode_payload(payload) -> object:
+    """Décode un payload MQTT brut : JSON si possible, sinon texte."""
+    if isinstance(payload, (bytes, bytearray)):
+        raw: str = payload.decode("utf-8", errors="replace")
+    else:
+        raw = str(payload)
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return raw
 
 
 class MQTTService:
@@ -59,11 +74,25 @@ class MQTTService:
                     logger.info("Abonné aux topics : %s", ", ".join(self.subscribe_topics))
 
                     async for message in client.messages:
-                        logger.debug(
-                            "Message MQTT reçu [%s] : %s",
-                            message.topic,
-                            message.payload,
-                        )
+                        # Relais vers les clients WebSocket. Un payload invalide
+                        # ne doit jamais casser la boucle de reconnexion.
+                        try:
+                            topic = str(message.topic)
+                            decoded = _decode_payload(message.payload)
+                            if topic == settings.MQTT_TOPIC_BARRIER_STATE:
+                                logger.info("État barrière reçu [%s] : %s", topic, decoded)
+                            else:
+                                logger.debug("Message MQTT reçu [%s] : %s", topic, decoded)
+                            await manager.broadcast(
+                                {
+                                    "type": "mqtt",
+                                    "topic": topic,
+                                    "payload": decoded,
+                                    "ts": datetime.now(timezone.utc).isoformat(),
+                                }
+                            )
+                        except Exception as exc:  # noqa: BLE001 — la boucle doit survivre
+                            logger.warning("Message MQTT ignoré (traitement échoué) : %s", exc)
             except asyncio.CancelledError:
                 self.connected = False
                 logger.info("Arrêt de la boucle MQTT.")
@@ -80,8 +109,6 @@ class MQTTService:
     async def publish(self, topic: str, payload) -> bool:
         """Publie un message. Retourne True si la publication a été remise au
         client, False sinon (déconnecté / erreur) — jamais d'échec en silence."""
-        import json
-
         if self._client is None or not self.connected:
             logger.warning("Publication MQTT ignorée (non connecté) : %s", topic)
             return False
@@ -120,8 +147,6 @@ def is_connected() -> bool:
 
 
 async def publish_json(topic: str, payload: dict | str) -> bool:
-    import json
-
     if isinstance(payload, dict):
         return await mqtt_client.publish(topic, json.dumps(payload))
     return await mqtt_client.publish(topic, str(payload))

@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # WebSocket : si True, /ws/events REFUSE toute connexion sans token valide.
+    # Défaut False (pratique en dev : le frontend se connecte d'abord puis
+    # rejoint avec ?token=...). Mettre true en production.
+    WS_REQUIRE_AUTH: bool = False
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

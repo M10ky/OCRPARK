@@ -81,7 +81,20 @@ curl -s -X POST http://localhost:8000/api/orchestrate/scan -H "Authorization: Be
 ```
 
 ## 8. WebSocket
-Ouvrir connexion `ws://localhost:8000/ws/events?token=$TOKEN` (ex. via websocat/wscat) — doit accepter. Sans token → fermeture 4401.
+Ouvrir une connexion `ws://localhost:8000/ws/events?token=$TOKEN` (ex. via websocat/wscat).
+- Token invalide → fermeture code **4401**.
+- Sans token → **accepté** en mode dev (`WS_REQUIRE_AUTH=false`, défaut) ; avec
+  `WS_REQUIRE_AUTH=true` (production) → fermeture **4401**.
+
+### 8bis. Relais MQTT → WebSocket
+Avec un client WebSocket connecté sur `/ws/events`, publier sur un topic écouté :
+```bash
+docker compose exec -T mqtt-broker mosquitto_pub -h localhost -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" \
+  -t barrier/state -m '{"state":"open"}'
+```
+Attendu côté WebSocket : un message JSON
+`{"type":"mqtt","topic":"barrier/state","payload":{"state":"open"},"ts":"..."}`.
+Le backend logge aussi en `INFO` : « État barrière reçu [barrier/state] : {'state': 'open'} ».
 
 ## 9. Sécurité
 ```bash
