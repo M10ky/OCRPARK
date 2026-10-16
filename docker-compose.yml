@@ -1,13 +1,15 @@
 # =========================================================================
 # SM-Park - Orchestration Docker Compose
 # -------------------------------------------------------------------------
-# Services actifs :
-#   - Phase 2 : mqtt-broker, database
-#   - Phase 3 : backend
-#   - Phase 4 : ocr-service
-# Services à venir :
-#   - Phase 6 : frontend
-# Pour lancer : docker compose --env-file .env up -d --build
+# Services :
+#   - mqtt-broker : Eclipse Mosquitto (phase 2)
+#   - database    : PostgreSQL 16 (phase 2)
+#   - backend     : FastAPI + WebSocket (phases 3 & 5)
+#   - ocr-service : FastAPI + EasyOCR (phase 4)
+#   - frontend    : Next.js (phase 6)
+# Pour lancer : docker compose up -d --build
+# Webcam (optionnel, matériel requis) :
+#   docker compose -f docker-compose.yml -f docker-compose.camera.yml up -d
 # =========================================================================
 
 name: smpark
@@ -108,10 +110,11 @@ services:
       start_period: 15s
 
   # -----------------------------------------------------------------------
-  # Service OCR - FastAPI + EasyOCR + OpenCV (capture webcam + OCR)
+  # Service OCR - FastAPI + EasyOCR + OpenCV
   # -----------------------------------------------------------------------
-  # Accès à la webcam : par défaut DÉSACTIVÉ pour démarrer sans matériel.
-  # Pour l'activer, voir docker-compose.override.yml.example (devices /dev/video0).
+  # Sans matériel : aucune webcam n'est montée (démarre partout). Pour donner
+  # accès à /dev/video0, utiliser l'overlay dédié :
+  #   docker compose -f docker-compose.yml -f docker-compose.camera.yml up -d
   ocr-service:
     build:
       context: ./ocr-service
@@ -122,10 +125,6 @@ services:
       - .env
     ports:
       - "${OCR_PORT:-8001}:8001"
-    devices:
-      - /dev/video0:/dev/video0
-    # Parfois nécessaire sur WSL :
-    privileged: true
     environment:
       - OCR_CAMERA_INDEX=0
     networks:
@@ -137,26 +136,20 @@ services:
       retries: 5
       start_period: 60s
 
-# -------------------------------------------------------------------------
-# SERVICES À VENIR
-#   frontend:  # Phase 6
-# -------------------------------------------------------------------------
-
-
   # -----------------------------------------------------------------------
   # Frontend - Next.js
   # -----------------------------------------------------------------------
+  # NEXT_PUBLIC_* sont intégrées au bundle au BUILD : ce sont des build args
+  # (les mettre dans `environment:` n'aurait aucun effet côté client).
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
     container_name: smpark-frontend
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:

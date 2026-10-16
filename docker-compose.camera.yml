@@ -1,0 +1,19 @@
+# =========================================================================
+# SM-Park - Overlay OPTIONNEL : accès webcam pour le service OCR
+# -------------------------------------------------------------------------
+# À utiliser UNIQUEMENT sur une machine disposant d'une webcam (/dev/video0).
+# L'overlay principal (docker-compose.yml) démarre partout sans matériel.
+#
+# Utilisation :
+#   docker compose -f docker-compose.yml -f docker-compose.camera.yml up -d
+#
+# Note : ce fichier s'appelle volontairement *.camera.yml et non
+# docker-compose.override.yml, ce dernier étant gitignoré.
+# =========================================================================
+
+services:
+  ocr-service:
+    devices:
+      - /dev/video0:/dev/video0
+    # Souvent nécessaire sous WSL2 pour l'accès USB/caméra :
+    privileged: true
