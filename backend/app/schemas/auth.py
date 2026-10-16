@@ -3,10 +3,17 @@ from pydantic import BaseModel
 
 
 class UserCreate(BaseModel):
+    """Création d'utilisateur PUBLIC (register).
+
+    Ne contient volontairement PAS de champ `is_admin` : un dépôt public
+    avec `"is_admin": true` ne doit jamais pouvoir s'auto-promouvoir.
+    Les administrateurs sont créés par `POST /api/auth/admin/users`
+    (protégé par `get_current_admin`) ou à l'initialisation de la base.
+    """
+
     username: str
     password: str
     email: str | None = None
-    is_admin: bool = False
 
 
 class UserRead(BaseModel):

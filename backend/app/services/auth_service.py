@@ -22,14 +22,16 @@ async def authenticate_user(session: AsyncSession, username: str, password: str)
     return user
 
 
-async def create_user(session: AsyncSession, user_in: UserCreate) -> User:
+async def create_user(session: AsyncSession, user_in: UserCreate, is_admin: bool = False) -> User:
+    """Crée un utilisateur ; `is_admin` n'est fixable que par un appel interne
+    (route admin protégée ou initialisation de base), jamais par le register."""
     hashed = get_password_hash(user_in.password)
     user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=hashed,
         is_active=True,
-        is_admin=user_in.is_admin,
+        is_admin=is_admin,
     )
     session.add(user)
     await session.commit()

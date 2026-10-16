@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_admin, get_current_user
 from app.core.security import create_access_token
 from app.db.session import get_session
 from app.models.user import User
@@ -16,19 +16,45 @@ from app.services.auth_service import authenticate_user, create_user, get_user_b
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserRead)
-async def register(
-    user_in: UserCreate,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> UserRead:
-    existing = await get_user_by_username(session, user_in.username)
+async def _ensure_username_free(session: AsyncSession, username: str) -> None:
+    existing = await get_user_by_username(session, username)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Nom d'utilisateur déjà utilisé",
         )
+
+
+@router.post("/register", response_model=UserRead)
+async def register(
+    user_in: UserCreate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> UserRead:
+    """Inscription publique : crée TOUJOURS un utilisateur non administrateur
+    (le champ `is_admin`, s'il est envoyé, est ignoré par le schéma)."""
+    await _ensure_username_free(session, user_in.username)
     try:
-        user = await create_user(session, user_in)
+        user = await create_user(session, user_in, is_admin=False)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Utilisateur déjà existant",
+        ) from exc
+    return UserRead.model_validate(user)
+
+
+@router.post("/admin/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def create_admin_user(
+    user_in: UserCreate,
+    current_admin: Annotated[User, Depends(get_current_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> UserRead:
+    """Crée un compte administrateur. Réservé aux administrateurs existants
+    (amorçage : voir `ADMIN_INITIAL_PASSWORD` à l'initialisation de la base)."""
+    await _ensure_username_free(session, user_in.username)
+    try:
+        user = await create_user(session, user_in, is_admin=True)
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(

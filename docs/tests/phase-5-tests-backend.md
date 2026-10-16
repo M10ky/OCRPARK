@@ -15,12 +15,39 @@ curl -s http://localhost:8000/api/health | python3 -m json.tool
 ```
 
 ## 3. Auth
+> L'admin initial n'est créé que si `ADMIN_INITIAL_PASSWORD` est défini dans
+> `.env` et différent de `admin` (sinon avertissement dans les logs du backend
+> et aucun compte admin). Le mot de passe n'est jamais journalisé.
+
 ```bash
+ADMIN_PWD="$(grep -E '^ADMIN_INITIAL_PASSWORD=' .env | cut -d= -f2-)"
 curl -s -X POST http://localhost:8000/api/auth/login \
-  -d "username=admin&password=admin" \
+  -d "username=admin&password=$ADMIN_PWD" \
   -H "Content-Type: application/x-www-form-urlencoded" | python3 -m json.tool
-TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login -d "username=admin&password=admin" -H "Content-Type: application/x-www-form-urlencoded" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login -d "username=admin&password=$ADMIN_PWD" -H "Content-Type: application/x-www-form-urlencoded" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me | python3 -m json.tool
+```
+
+### 3bis. Inscription publique ne peut pas s'auto-promouvoir
+```bash
+# is_admin envoyé mais IGNORE : l'utilisateur est créé non admin
+curl -s -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"bob","password":"bobpass123","is_admin":true}' | python3 -m json.tool
+TOKEN_BOB=$(curl -s -X POST http://localhost:8000/api/auth/login -d "username=bob&password=bobpass123" -H "Content-Type: application/x-www-form-urlencoded" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+curl -s -H "Authorization: Bearer $TOKEN_BOB" http://localhost:8000/api/auth/me | python3 -m json.tool
+# Attendu : "is_admin": false
+```
+
+### 3ter. Création d'admin (réservée aux admins)
+```bash
+# Sans token / avec un token non-admin : 401 / 403
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST http://localhost:8000/api/auth/admin/users \
+  -H "Content-Type: application/json" -d '{"username":"hacker","password":"x"}'
+# Avec le token admin : 201 et is_admin=true
+curl -s -X POST http://localhost:8000/api/auth/admin/users \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"username":"admin2","password":"admin2pass"}' | python3 -m json.tool
 ```
 
 ## 4. Plaques autorisées
