@@ -11,11 +11,12 @@
 - Arborescence `src/`, `include/`, `lib/`, `test/`, `.gitignore` (`.pio`, `.vscode`, `.DS_Store`).
 
 ### 2) Firmware (src/main.cpp)
-- Connexion Wi-Fi (avec fallbacks via defines), connexion MQTT authentifiée (user/pass), reconnexion automatique.
+- Connexion Wi-Fi (avec fallbacks via defines), connexion MQTT authentifiée (user/pass), reconnexion automatique **non bloquante** (backoff, reprise dans `loop()`).
 - Abonnement : `parking/barrier/command`.
-- Publication : `barrier/state` (états: `initialized`, `idle`, `opening`, `open`, `closing`, `closed`, `error`, `heartbeat`).
-- Logique simulée : à réception `action=open` → séquence `opening` → `open` (2s) → `closing` → `closed` (simulation temporelle). `action=close` → `closing` → `closed`. Inconnu → `idle` avec `reason`.
-- Payload JSON via ArduinoJson (inclut `uptime_ms`, `reason` si pertinent).
+- Publication : `barrier/state` (états: `online`, `offline` [Last Will], `idle`, `opening`, `open`, `closing`, `closed`, `error` ; heartbeat = état courant rafraîchi toutes les 5 s, `retain=true`).
+- Logique simulée : **machine à états non bloquante** (`IDLE`, `OPENING`, `OPEN`, `CLOSING`, `CLOSED`) pilotée par `millis()` ; à réception `action=open` → `opening` → `open` (maintien 2 s) → `closing` → `closed`. `action=close` → `closing` → `closed`. Inconnu → `idle` avec `reason`.
+- Last Will MQTT `{"state":"offline"}` + publication `online` (retain) à la connexion : le backend détecte un device hors ligne.
+- Payload JSON via ArduinoJson (inclut `gate`, `uptime_ms`, `reason` si pertinent). `gate` (`entry`/`exit`) est lu dans la commande, en prévision des 2 servos.
 
 ### 3) Cohérence avec l'existant
 - Topics alignés avec backend/orchestrateur (`MQTT_TOPIC_BARRIER_COMMAND=parking/barrier/command`, `barrier/state`).

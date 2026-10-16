@@ -77,7 +77,15 @@ la compilation utilise les valeurs `CHANGE_ME` de `main.cpp`.
 pio run -d /home/miokrako/SM-Park/firmware/esp32 -t upload
 pio device monitor -d /home/miokrako/SM-Park/firmware/esp32 --baud 115200
 ```
-Attendu : `initialized` / `idle`, puis `heartbeat` toutes les 5 s.
+Attendu : `online` (retain) après connexion MQTT, puis l'état courant
+(`idle`) rafraîchi toutes les 5 s (heartbeat). Si le device se déconnecte sans
+prévenir, le broker publie le Last Will `{"state":"offline"}`.
+
+### B.2bis Séquence barrière (machine à états non bloquante)
+À réception de `{"action":"open","gate":"entry"}`, le firmware publie
+`opening` → `open` (maintien 2 s) → `closing` → `closed`, sans `delay()` :
+le callback ne fait que fixer l'état cible, `loop()` avance la séquence via
+`millis()`. `gate` est repris dans chaque payload d'état (`entry` par défaut).
 
 ### B.3 Test MQTT (avec ESP32)
 Terminal 1 (écoute états) :
