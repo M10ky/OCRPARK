@@ -1,5 +1,6 @@
 """Routes de scan : capture webcam ou image envoyée, puis reconnaissance OCR."""
 
+import asyncio
 import logging
 
 import cv2
@@ -32,14 +33,16 @@ class ScanResult(BaseModel):
     source: str
 
 
-def _run_ocr(image: np.ndarray, source: str) -> ScanResult:
+async def _run_ocr(image: np.ndarray, source: str) -> ScanResult:
     if not engine.ready:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Le moteur OCR est en cours de chargement.",
         )
-    detections = engine.read(image)
-    best = engine.read_best(image)
+    # Une SEULE inférence : read() puis pick_best() sur la liste obtenue.
+    # L'inférence est bloquante (CPU) -> exécutée hors de la boucle asyncio.
+    detections = await asyncio.to_thread(engine.read, image)
+    best = engine.pick_best(detections)
     return ScanResult(
         plate=best["text"] if best else None,
         confidence=best["confidence"] if best else None,
@@ -52,13 +55,13 @@ def _run_ocr(image: np.ndarray, source: str) -> ScanResult:
 async def scan_from_camera() -> ScanResult:
     """Capture une image depuis la webcam puis applique l'OCR."""
     try:
-        image = CameraService().capture()
+        image = await asyncio.to_thread(CameraService().capture)
     except CameraError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
-    return _run_ocr(image, source="camera")
+    return await _run_ocr(image, source="camera")
 
 
 @router.post("/scan/upload", response_model=ScanResult, summary="OCR sur image envoyée")
@@ -79,14 +82,14 @@ async def scan_from_upload(file: UploadFile = File(...)) -> ScanResult:
             detail="Image illisible ou format non supporté.",
         )
 
-    return _run_ocr(image, source=f"upload:{file.filename}")
+    return await _run_ocr(image, source=f"upload:{file.filename}")
 
 
 @router.get("/camera/preview", summary="Aperçu JPEG de la webcam")
 async def camera_preview() -> Response:
     """Renvoie la dernière image capturée en JPEG (debug / intégration)."""
     try:
-        image = CameraService().capture()
+        image = await asyncio.to_thread(CameraService().capture)
     except CameraError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

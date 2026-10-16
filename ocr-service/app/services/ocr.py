@@ -63,16 +63,24 @@ class OCREngine:
         detections.sort(key=lambda d: d["confidence"], reverse=True)
         return detections
 
-    def read_best(self, image: np.ndarray) -> dict | None:
-        """Retourne la détection la plus probable d'être une plaque."""
+    def pick_best(self, detections: list[dict]) -> dict | None:
+        """Retourne la détection la plus probable d'être une plaque.
+
+        Applique le seuil de confiance et le critère `confidence * len(text)`
+        sur une liste DÉJÀ calculée (évite une seconde inférence EasyOCR).
+        """
         # On privilégie une confiance élevée et un contenu alphanumérique long.
         candidates = [
-            d for d in self.read(image)
+            d for d in detections
             if d["confidence"] >= self.confidence_threshold
         ]
         if not candidates:
             return None
         return max(candidates, key=lambda d: d["confidence"] * len(d["text"]))
+
+    def read_best(self, image: np.ndarray) -> dict | None:
+        """Retourne la meilleure détection pour une image (une seule inférence)."""
+        return self.pick_best(self.read(image))
 
 
 engine = OCREngine()
