@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import aiomqtt
 
 from app.core.config import get_settings
+from app.services import mqtt_handlers
 from app.services.ws_manager import manager
 
 logger = logging.getLogger("smpark.mqtt")
@@ -75,23 +76,11 @@ class MQTTService:
                     logger.info("Abonné aux topics (QoS 1) : %s", ", ".join(self.subscribe_topics))
 
                     async for message in client.messages:
-                        # Relais vers les clients WebSocket. Un payload invalide
-                        # ne doit jamais casser la boucle de reconnexion.
+                        # Routage métier puis relais éventuel vers les WebSockets.
+                        # Un payload invalide ne doit jamais casser la boucle de
+                        # reconnexion.
                         try:
-                            topic = str(message.topic)
-                            decoded = _decode_payload(message.payload)
-                            if topic == settings.MQTT_TOPIC_BARRIER_STATE:
-                                logger.info("État barrière reçu [%s] : %s", topic, decoded)
-                            else:
-                                logger.debug("Message MQTT reçu [%s] : %s", topic, decoded)
-                            await manager.broadcast(
-                                {
-                                    "type": "mqtt",
-                                    "topic": topic,
-                                    "payload": decoded,
-                                    "ts": datetime.now(timezone.utc).isoformat(),
-                                }
-                            )
+                            await self._dispatch(str(message.topic), message.payload)
                         except Exception as exc:  # noqa: BLE001 — la boucle doit survivre
                             logger.warning("Message MQTT ignoré (traitement échoué) : %s", exc)
             except asyncio.CancelledError:
@@ -106,6 +95,30 @@ class MQTTService:
                     self.RECONNECT_DELAY,
                 )
                 await asyncio.sleep(self.RECONNECT_DELAY)
+
+    async def _dispatch(self, topic: str, payload) -> None:
+        """Route un message entrant vers le handler métier du contrat.
+
+        Les topics du contrat (`docs/mqtt-contract.md` §C) sont traités par
+        `mqtt_handlers` ; tout autre topic est relayé brut en fallback (`mqtt`).
+        """
+        decoded = _decode_payload(payload)
+        if topic == settings.MQTT_TOPIC_PARKING_STATE:
+            await mqtt_handlers.handle_parking_state(decoded)
+        elif topic == settings.MQTT_TOPIC_PARKING_EVENTS:
+            await mqtt_handlers.handle_parking_event(decoded)
+        elif topic == settings.MQTT_TOPIC_BARRIER_STATE:
+            await mqtt_handlers.handle_barrier_state(decoded)
+        else:
+            logger.debug("Message MQTT non routé [%s] : %s", topic, decoded)
+            await manager.broadcast(
+                {
+                    "type": "mqtt",
+                    "topic": topic,
+                    "payload": decoded,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
     async def publish(
         self, topic: str, payload, qos: int = 1, retain: bool = False

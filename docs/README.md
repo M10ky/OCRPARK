@@ -8,6 +8,7 @@ Ce dossier centralise la documentation technique du projet SM-Park.
 docs/
 ├── README.md                       # ce fichier (index)
 ├── mqtt-contract.md                # SOURCE DE VÉRITÉ des échanges MQTT
+├── websocket-contract.md           # format des événements WebSocket (Phase D)
 ├── fiches-de-production/           # fiche de production de chaque phase
 │   ├── phase-0-preparation.md
 │   ├── phase-1-arborescence-fondations.md
@@ -18,7 +19,8 @@ docs/
 │   ├── phase-6.md
 │   ├── phase-7.md
 │   ├── phase-7-plan-tests-mqtt.md
-│   └── phase-A-stabilisation.md
+│   ├── phase-A-stabilisation.md
+│   └── phase-D-backend-live.md
 └── tests/                          # tutos de test par technologie
     ├── phase-0-tests-environnement.md
     ├── phase-1-tests-fondations.md
@@ -28,7 +30,8 @@ docs/
     ├── phase-5-tests-backend.md
     ├── phase-6-tests-frontend.md
     ├── phase-7-tests-firmware.md
-    └── phase-A-tests-smoke.md
+    ├── phase-A-tests-smoke.md
+    └── phase-D-tests-backend-live.md
 ```
 
 ## Convention
@@ -55,12 +58,19 @@ docs/
 | 6 – Frontend Next.js | [fiche](fiches-de-production/phase-6.md) | [tests](tests/phase-6-tests-frontend.md) |
 | 7 – Firmware ESP32 | [fiche](fiches-de-production/phase-7.md) · [plan tests MQTT](fiches-de-production/phase-7-plan-tests-mqtt.md) | [tests](tests/phase-7-tests-firmware.md) |
 | A – Stabilisation | [fiche](fiches-de-production/phase-A-stabilisation.md) | [tests](tests/phase-A-tests-smoke.md) |
+| D – Backend live (MQTT, occupation, WS) | [fiche](fiches-de-production/phase-D-backend-live.md) | [tests](tests/phase-D-tests-backend-live.md) |
 
 ## Contrat MQTT
 
 `docs/mqtt-contract.md` est la **source de vérité unique** des échanges MQTT
 (topics, QoS, retain, payloads). Tout code (backend, firmware, simulateur, tests)
 doit s'y conformer.
+
+## Contrat WebSocket
+
+`docs/websocket-contract.md` est la **source de vérité** des événements temps
+réel diffusés sur `/ws/events` (enveloppe `{type, payload, ts}`, types
+`snapshot`/`slots`/`visit`/`passage`/`barrier`/`mqtt`).
 
 ## Technologies utilisées
 

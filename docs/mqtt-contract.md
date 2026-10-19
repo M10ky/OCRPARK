@@ -75,13 +75,14 @@ Principe : le backend **décide**, l'ESP32 **exécute** et **rend compte**. L'ES
 
 ### D.2 `parking/events` — ESP32 → backend (retain=false, QoS 1)
 ```json
-{ "type": "entry", "gate": "entry", "ts": "2026-01-01T00:00:00Z" }
+{ "type": "entry", "gate": "entry", "ts": "2026-01-01T00:00:00Z", "plate": "AB123CD" }
 ```
 | Champ | Requis | Description |
 |---|---|---|
 | `type` | oui | `"entry"` ou `"exit"` |
 | `gate` | oui | `"entry"` ou `"exit"` |
 | `ts` | non | horodatage ISO 8601 UTC |
+| `plate` | non | plaque normalisée (Phase D) : renseigne directement la visite ; si absente, le backend rattache le dernier passage autorisé du portail |
 
 ### D.3 `parking/barrier/command` — backend → ESP32 (retain=false, QoS 1)
 ```json

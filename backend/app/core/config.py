@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # rejoint avec ?token=...). Mettre true en production.
     WS_REQUIRE_AUTH: bool = False
 
+    # Parking : nombre de places initialisées au démarrage (seed idempotent).
+    PARKING_SLOT_COUNT: int = 3
+
+    # Délai max (secondes) d'attente d'un ACK `barrier/state` avant timeout.
+    BARRIER_ACK_TIMEOUT_SECONDS: float = 5.0
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

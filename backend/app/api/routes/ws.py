@@ -1,10 +1,12 @@
 """Route WebSocket pour événements temps réel."""
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.core.config import get_settings
 from app.core.security import decode_access_token
+from app.services.mqtt_handlers import current_snapshot
 from app.services.ws_manager import manager
 
 router = APIRouter(tags=["websocket"])
@@ -13,7 +15,7 @@ settings = get_settings()
 
 @router.websocket("/ws/events")
 async def ws_events(websocket: WebSocket, token: str | None = Query(default=None)) -> None:
-    """Événements temps réel (passages, état barrière/MQTT).
+    """Événements temps réel (snapshot initial, slots, visites, passages, barrière).
 
     Authentification : un token (`?token=<JWT>`) est vérifié s'il est fourni.
     S'il est absent, la connexion est acceptée uniquement si
@@ -34,6 +36,17 @@ async def ws_events(websocket: WebSocket, token: str | None = Query(default=None
         return
     await manager.connect(websocket)
     try:
+        # Snapshot initial : le frontend n'attend pas le premier événement MQTT.
+        try:
+            await websocket.send_json(
+                {
+                    "type": "snapshot",
+                    "payload": await current_snapshot(),
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception:  # noqa: BLE001 — un snapshot raté ne coupe pas la connexion
+            pass
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

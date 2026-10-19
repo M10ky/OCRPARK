@@ -6,12 +6,30 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, health, orchestrate, passages, plates, root, ws
+from app.api.routes import (
+    auth,
+    barrier,
+    health,
+    orchestrate,
+    passages,
+    plates,
+    root,
+    slots,
+    visits,
+    ws,
+)
 from app.core.config import get_settings
 from app.services.mqtt import mqtt_client
 from app.db.session import engine
 from app.models.base import Base
-from app.models import allowed_plate, passage, user  # noqa
+from app.models import (  # noqa
+    allowed_plate,
+    barrier_command,
+    parking_slot,
+    passage,
+    user,
+    visit,
+)
 from app.db import init_db
 
 logging.basicConfig(
@@ -58,4 +76,7 @@ app.include_router(auth.router)
 app.include_router(plates.router)
 app.include_router(passages.router)
 app.include_router(orchestrate.router)
+app.include_router(slots.router)
+app.include_router(visits.router)
+app.include_router(barrier.router)
 app.include_router(ws.router)

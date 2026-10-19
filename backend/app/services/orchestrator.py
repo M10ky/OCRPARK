@@ -1,4 +1,5 @@
 """Orchestrateur : détection→OCR→décision→commande barrière."""
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -8,14 +9,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.allowed_plate import AllowedPlate
+from app.models.barrier_command import BARRIER_CMD_TIMEOUT, BarrierCommand
+from app.models.parking_slot import ParkingSlot
 from app.models.passage import Passage
+from app.services import barrier
 from app.services.mqtt import mqtt_client
 from app.services.ocr_client import normalize_plate
 from app.services.ws_manager import manager
 
 settings = get_settings()
 
+logger = logging.getLogger("smpark.orchestrator")
+
 VALID_GATES = ("entry", "exit")
+
+
+async def _occupancy(session: AsyncSession) -> tuple[int, int]:
+    """Retourne (total, libres) des places de parking."""
+    occupied = (await session.execute(select(ParkingSlot.occupied))).scalars().all()
+    total = len(occupied)
+    free = sum(1 for is_occupied in occupied if not is_occupied)
+    return total, free
 
 
 class OrchestratorResult:
@@ -57,14 +71,24 @@ async def decide_and_act(
     recognized = normalized is not None and len(normalized) > 0
 
     allowed = False
+    authorized = False
     reason = "Non reconnu" if not recognized else "Plaque non autorisée"
     if recognized:
         stmt = select(AllowedPlate).where(AllowedPlate.plate == normalized, AllowedPlate.active.is_(True))
         res = await session.execute(stmt)
         ap = res.scalar_one_or_none()
         if ap:
-            allowed = True
+            authorized = True
             reason = "Plaque autorisée"
+
+    # Capacité : à l'entrée uniquement (une sortie ne doit jamais être bloquée).
+    total_slots, free_slots = await _occupancy(session)
+    parking_full = gate == "entry" and total_slots > 0 and free_slots == 0
+
+    allowed = authorized
+    if authorized and parking_full:
+        allowed = False
+        reason = "Parking plein"
 
     action = "open" if allowed else "deny"
     barrier_action = "open" if allowed else None
@@ -89,9 +113,19 @@ async def decide_and_act(
     await session.commit()
     await session.refresh(passage)
 
-    # 2) Publication MQTT ensuite, avec retour de succès explicite.
+    # 2) Commande barrière enregistrée puis publiée, avec retour explicite.
     barrier_command_sent = False
+    barrier_ack_status: str | None = None
     if allowed:
+        command = BarrierCommand(
+            correlation_id=passage_id,
+            passage_id=passage_id,
+            action="open",
+            gate=gate,
+        )
+        session.add(command)
+        await session.commit()
+
         cmd = {
             "action": "open",
             "gate": gate,
@@ -106,17 +140,31 @@ async def decide_and_act(
             passage.mqtt_topic = settings.MQTT_TOPIC_BARRIER_COMMAND
             await session.commit()
             await session.refresh(passage)
+            barrier_ack_status = "pending"
+            barrier.schedule_ack_timeout(passage_id, settings.BARRIER_ACK_TIMEOUT_SECONDS)
+        else:
+            # Publication impossible : la commande ne reste pas « pending ».
+            command.status = BARRIER_CMD_TIMEOUT
+            await session.commit()
+            barrier_ack_status = BARRIER_CMD_TIMEOUT
+            logger.warning(
+                "Commande barrière non publiée (MQTT indisponible) : passage=%s", correlation_id
+            )
 
     decision = {
         "id": correlation_id,
         "plate": normalized,
         "recognized": recognized,
         "confidence": float(confidence) if confidence is not None else None,
+        "authorized": authorized,
         "allowed": allowed,
         "action": action,
         "gate": gate,
         "barrier_command_sent": barrier_command_sent,
         "barrier_action": barrier_action,
+        "barrier_ack_status": barrier_ack_status,
+        "total_slots": total_slots,
+        "free_slots": free_slots,
         "reason": reason,
         "source": source,
         "correlation_id": correlation_id,
