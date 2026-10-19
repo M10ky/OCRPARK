@@ -69,9 +69,10 @@ class MQTTService:
                     self.connected = True
                     logger.info("Connecté au broker MQTT %s:%s", self.host, self.port)
 
+                    # QoS 1 (au moins une fois) : voir docs/mqtt-contract.md §C.
                     for topic in self.subscribe_topics:
-                        await client.subscribe(topic)
-                    logger.info("Abonné aux topics : %s", ", ".join(self.subscribe_topics))
+                        await client.subscribe(topic, qos=1)
+                    logger.info("Abonné aux topics (QoS 1) : %s", ", ".join(self.subscribe_topics))
 
                     async for message in client.messages:
                         # Relais vers les clients WebSocket. Un payload invalide
@@ -106,17 +107,19 @@ class MQTTService:
                 )
                 await asyncio.sleep(self.RECONNECT_DELAY)
 
-    async def publish(self, topic: str, payload) -> bool:
-        """Publie un message. Retourne True si la publication a été remise au
-        client, False sinon (déconnecté / erreur) — jamais d'échec en silence."""
+    async def publish(
+        self, topic: str, payload, qos: int = 1, retain: bool = False
+    ) -> bool:
+        """Publie un message. QoS 1 et retain=false par défaut, conformes au
+        contrat MQTT (docs/mqtt-contract.md §C). Retourne True si la publication
+        a été remise au client, False sinon (déconnecté / erreur) — jamais
+        d'échec en silence."""
         if self._client is None or not self.connected:
             logger.warning("Publication MQTT ignorée (non connecté) : %s", topic)
             return False
         try:
-            if isinstance(payload, dict):
-                await self._client.publish(topic, json.dumps(payload))
-            else:
-                await self._client.publish(topic, str(payload))
+            body = json.dumps(payload) if isinstance(payload, dict) else str(payload)
+            await self._client.publish(topic, body, qos=qos, retain=retain)
             return True
         except Exception as exc:  # noqa: BLE001 — aiomqtt lève MqttError/OSError
             logger.warning("Échec de publication MQTT sur %s : %s", topic, exc)
@@ -144,10 +147,4 @@ mqtt_client = MQTTService()
 
 def is_connected() -> bool:
     return mqtt_client.connected
-
-
-async def publish_json(topic: str, payload: dict | str) -> bool:
-    if isinstance(payload, dict):
-        return await mqtt_client.publish(topic, json.dumps(payload))
-    return await mqtt_client.publish(topic, str(payload))
 

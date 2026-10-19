@@ -7,6 +7,7 @@ Ce dossier centralise la documentation technique du projet SM-Park.
 ```
 docs/
 ├── README.md                       # ce fichier (index)
+├── mqtt-contract.md                # SOURCE DE VÉRITÉ des échanges MQTT
 ├── fiches-de-production/           # fiche de production de chaque phase
 │   ├── phase-0-preparation.md
 │   ├── phase-1-arborescence-fondations.md
@@ -16,7 +17,8 @@ docs/
 │   ├── phase-5.md
 │   ├── phase-6.md
 │   ├── phase-7.md
-│   └── phase-7-plan-tests-mqtt.md
+│   ├── phase-7-plan-tests-mqtt.md
+│   └── phase-A-stabilisation.md
 └── tests/                          # tutos de test par technologie
     ├── phase-0-tests-environnement.md
     ├── phase-1-tests-fondations.md
@@ -25,7 +27,8 @@ docs/
     ├── phase-4-tests-ocr.md
     ├── phase-5-tests-backend.md
     ├── phase-6-tests-frontend.md
-    └── phase-7-tests-firmware.md
+    ├── phase-7-tests-firmware.md
+    └── phase-A-tests-smoke.md
 ```
 
 ## Convention
@@ -51,6 +54,13 @@ docs/
 | 5 – Backend (logique métier) | [fiche](fiches-de-production/phase-5.md) | [tests](tests/phase-5-tests-backend.md) |
 | 6 – Frontend Next.js | [fiche](fiches-de-production/phase-6.md) | [tests](tests/phase-6-tests-frontend.md) |
 | 7 – Firmware ESP32 | [fiche](fiches-de-production/phase-7.md) · [plan tests MQTT](fiches-de-production/phase-7-plan-tests-mqtt.md) | [tests](tests/phase-7-tests-firmware.md) |
+| A – Stabilisation | [fiche](fiches-de-production/phase-A-stabilisation.md) | [tests](tests/phase-A-tests-smoke.md) |
+
+## Contrat MQTT
+
+`docs/mqtt-contract.md` est la **source de vérité unique** des échanges MQTT
+(topics, QoS, retain, payloads). Tout code (backend, firmware, simulateur, tests)
+doit s'y conformer.
 
 ## Technologies utilisées
 

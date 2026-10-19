@@ -96,10 +96,13 @@ docker exec smpark-mqtt mosquitto_sub -h localhost -p 1883 \
 
 # Terminal 2 : publication
 docker exec smpark-mqtt mosquitto_pub -h localhost -p 1883 \
-  -u smpark -P change_me_mqtt -t parking/state -m '{"slot":1,"occupied":true}'
+  -u smpark -P change_me_mqtt -t parking/state -q 1 -r \
+  -m '{"slots":[{"id":1,"occupied":true},{"id":2,"occupied":false}]}'
 ```
 
-- **Attendu** : le terminal 1 affiche `parking/state {"slot":1,...}`.
+- **Attendu** : le terminal 1 affiche
+  `parking/state {"slots":[{"id":1,"occupied":true},...]}`.
+  (Charge canonique : voir `docs/mqtt-contract.md` §D.1.)
 - **Ce que vous apprenez** : le joker `#` (multi-niveaux) et `+` (un niveau)
   permettent de s'abonner à des familles de topics. `-v` affiche le topic
   *et* le message. C'est l'outil de debug MQTT à connaître par cœur.

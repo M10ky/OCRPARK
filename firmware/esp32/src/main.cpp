@@ -66,6 +66,9 @@ PubSubClient mqttClient(wifiClient);
 BarrierState barrierState = IDLE;
 unsigned long stateSince = 0;
 String currentGate = "entry";
+// correlation_id de la commande en cours : écho dans le PREMIER barrier/state
+// publié en réaction (ACK), puis effacé (voir docs/mqtt-contract.md §D.4).
+String pendingCorrelationId = "";
 
 unsigned long lastStatePublish = 0;
 unsigned long lastWifiAttempt = 0;
@@ -77,9 +80,16 @@ void publishBarrierState(const char* state, const char* reason = nullptr) {
   doc["state"] = state;
   doc["gate"] = currentGate;
   if (reason) doc["reason"] = reason;
+  // ACK : le premier état publié après une commande porte son correlation_id.
+  if (pendingCorrelationId.length() > 0) {
+    doc["correlation_id"] = pendingCorrelationId;
+    pendingCorrelationId = "";
+  }
   doc["uptime_ms"] = millis();
   char buf[256];
   serializeJson(doc, buf);
+  // retain=true (contrat §D.4). PubSubClient ne publie qu'en QoS 0 : le backend
+  // tolère ce QoS plus faible (voir docs/mqtt-contract.md §I).
   mqttClient.publish(TOPIC_BARRIER_STATE, buf, true);
 }
 
@@ -107,6 +117,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   const char* gate = doc["gate"] | "entry";
   currentGate = gate;
+
+  // Mémorise le correlation_id : il sera écho dans le premier état publié (ACK).
+  const char* cid = doc["correlation_id"] | "";
+  pendingCorrelationId = cid;
 
   const char* action = doc["action"] | "none";
   if (strcmp(action, "open") == 0) {
