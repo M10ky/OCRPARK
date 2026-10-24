@@ -125,6 +125,12 @@ services:
       - .env
     ports:
       - "${OCR_PORT:-8001}:8001"
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+    group_add:
+      - video
+    privileged: true
     environment:
       - OCR_CAMERA_INDEX=0
     networks:

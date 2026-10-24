@@ -108,7 +108,10 @@ while read -r _topic payload; do
             publish_state closed
             ;;
         *)
-            publish_state idle "unknown_action" "$CID"
+            # ⚠️ Une commande invalide ne doit JAMAIS produire d'ACK : le
+            # correlation_id n'est PAS renvoyé (le backend doit voir un
+            # timeout, pas un faux succès). Voir l'audit C.1, F-07.
+            publish_state idle "unknown_action"
             ;;
     esac
 done

@@ -106,7 +106,14 @@ printf '\n-- Health --\n'
 check_http "backend (live)" "$BACKEND_URL/api/health/live"
 # /health/live évite la sonde webcam (lente/bloquante sur /health sans caméra).
 check_http "ocr-service (live)" "$OCR_URL/health/live"
-check_http "frontend" "$FRONTEND_URL/"
+# La racine `/` redirige (307) vers /dashboard : on teste la page /login.
+check_http "frontend (login)" "$FRONTEND_URL/login"
+root_code="$(http_status "$FRONTEND_URL/")"
+if [ "$root_code" = "200" ] || [ "$root_code" = "307" ]; then
+    ok "frontend racine (HTTP $root_code)"
+else
+    ko "frontend racine (HTTP $root_code)"
+fi
 
 health_body="$(http_get "$BACKEND_URL/api/health")"
 if printf '%s' "$health_body" | grep -q '"database": *"up"'; then

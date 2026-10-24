@@ -20,6 +20,10 @@ docs/
 │   ├── phase-7.md
 │   ├── phase-7-plan-tests-mqtt.md
 │   ├── phase-A-stabilisation.md
+│   ├── phase-B-frontend-architecture.md
+│   ├── phase-B-frontend.md
+│   ├── phase-C-firmware-audit.md
+│   ├── phase-C-firmware-mqtt.md
 │   └── phase-D-backend-live.md
 └── tests/                          # tutos de test par technologie
     ├── phase-0-tests-environnement.md
@@ -31,6 +35,8 @@ docs/
     ├── phase-6-tests-frontend.md
     ├── phase-7-tests-firmware.md
     ├── phase-A-tests-smoke.md
+    ├── phase-B-tests-frontend.md
+    ├── phase-C-tests-firmware-mqtt.md
     └── phase-D-tests-backend-live.md
 ```
 
@@ -58,6 +64,8 @@ docs/
 | 6 – Frontend Next.js | [fiche](fiches-de-production/phase-6.md) | [tests](tests/phase-6-tests-frontend.md) |
 | 7 – Firmware ESP32 | [fiche](fiches-de-production/phase-7.md) · [plan tests MQTT](fiches-de-production/phase-7-plan-tests-mqtt.md) | [tests](tests/phase-7-tests-firmware.md) |
 | A – Stabilisation | [fiche](fiches-de-production/phase-A-stabilisation.md) | [tests](tests/phase-A-tests-smoke.md) |
+| B – Frontend métier | [architecture](fiches-de-production/phase-B-frontend-architecture.md) · [fiche](fiches-de-production/phase-B-frontend.md) | [tests](tests/phase-B-tests-frontend.md) |
+| C – Firmware ESP32 (MQTT, matériel réel) | [audit](fiches-de-production/phase-C-firmware-audit.md) · [fiche](fiches-de-production/phase-C-firmware-mqtt.md) | [tests](tests/phase-C-tests-firmware-mqtt.md) |
 | D – Backend live (MQTT, occupation, WS) | [fiche](fiches-de-production/phase-D-backend-live.md) | [tests](tests/phase-D-tests-backend-live.md) |
 
 ## Contrat MQTT
